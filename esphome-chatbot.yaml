@@ -1,0 +1,244 @@
+esphome:
+  name: chat-robot
+  friendly_name: Chat Robot
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.f_flash: 80000000L
+    board_build.flash_size: 16MB
+  on_boot:
+    - priority: -100
+      then:
+        - lambda: |-
+            id(eye_state) = "idle";
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_SPIRAM_MODE_OCT: "y"
+      CONFIG_SPIRAM_SPEED_80M: "y"
+      CONFIG_SPIRAM: "y"
+      CONFIG_ESP32_S3_BOX_BOARD: "y"
+  
+psram:
+  mode: octal
+  speed: 80MHz
+
+external_components:
+  - source: github://pr#5230
+    components:
+      - micro_wake_word
+    refresh: 0s
+
+# I2C for OLED display
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
+  frequency: 400kHz
+  id: bus_a
+
+# I2S Audio configuration
+i2s_audio:
+  - id: i2s_in
+    i2s_lrclk_pin: GPIO4
+    i2s_bclk_pin: GPIO5
+  - id: i2s_out
+    i2s_lrclk_pin: GPIO16
+    i2s_bclk_pin: GPIO17
+
+# Microphone
+microphone:
+  - platform: i2s_audio
+    id: mic
+    adc_type: external
+    i2s_audio_id: i2s_in
+    i2s_din_pin: GPIO6
+    pdm: false
+    bits_per_sample: 32bit
+    sample_rate: 16000
+
+# Speaker
+speaker:
+  - platform: i2s_audio
+    id: speaker_out
+    i2s_audio_id: i2s_out
+    dac_type: external
+    i2s_dout_pin: GPIO18
+    mode: mono
+    sample_rate: 16000
+    bits_per_sample: 16bit
+
+# Micro Wake Word - with PSRAM you can use larger models
+micro_wake_word:
+  models:
+    - model: okay_nabu
+  probability_cutoff: 0.5
+  sliding_window_average_size: 10
+  on_wake_word_detected:
+    - voice_assistant.start:
+    - lambda: |-
+        id(eye_state) = "listening";
+        id(blink_timer) = 0;
+
+# Voice Assistant
+voice_assistant:
+  microphone: mic
+  speaker: speaker_out
+  use_wake_word: false
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+  on_listening:
+    - lambda: |-
+        id(eye_state) = "listening";
+  on_stt_end:
+    - lambda: |-
+        id(eye_state) = "thinking";
+  on_tts_start:
+    - lambda: |-
+        id(eye_state) = "speaking";
+  on_end:
+    - lambda: |-
+        id(eye_state) = "idle";
+        id(blink_timer) = 0;
+  on_error:
+    - lambda: |-
+        id(eye_state) = "error";
+        id(blink_timer) = 0;
+
+# OLED Display
+font:
+  - file: "fonts/Arial.ttf"
+    id: font_small
+    size: 10
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 50ms  # 20 FPS for smooth animation
+    lambda: |-
+      // Animation counter
+      static int frame = 0;
+      frame++;
+      
+      int left_eye_x = 35;
+      int right_eye_x = 93;
+      int eye_y = 32;
+      int eye_radius = 14;
+      int pupil_radius = 8;
+      
+      // Blink animation
+      bool is_blinking = false;
+      if (id(eye_state) == "idle" || id(eye_state) == "listening") {
+        id(blink_timer)++;
+        if (id(blink_timer) > 100 && id(blink_timer) < 106) {
+          is_blinking = true;
+        } else if (id(blink_timer) > 110) {
+          id(blink_timer) = 0;
+        }
+      }
+      
+      if (id(eye_state) == "idle") {
+        // Draw normal eyes with occasional blink
+        if (is_blinking) {
+          // Draw closed eyes (horizontal lines)
+          it.line(left_eye_x - eye_radius, eye_y, left_eye_x + eye_radius, eye_y);
+          it.line(right_eye_x - eye_radius, eye_y, right_eye_x + eye_radius, eye_y);
+        } else {
+          // Draw open eyes
+          it.circle(left_eye_x, eye_y, eye_radius);
+          it.circle(right_eye_x, eye_y, eye_radius);
+          it.filled_circle(left_eye_x, eye_y, pupil_radius);
+          it.filled_circle(right_eye_x, eye_y, pupil_radius);
+        }
+      }
+      else if (id(eye_state) == "listening") {
+        // Wide eyes
+        it.circle(left_eye_x, eye_y, eye_radius + 2);
+        it.circle(right_eye_x, eye_y, eye_radius + 2);
+        it.filled_circle(left_eye_x, eye_y, pupil_radius + 2);
+        it.filled_circle(right_eye_x, eye_y, pupil_radius + 2);
+        
+        // Pulsing effect
+        if ((frame / 10) % 2 == 0) {
+          it.circle(left_eye_x, eye_y, eye_radius + 4);
+          it.circle(right_eye_x, eye_y, eye_radius + 4);
+        }
+      }
+      else if (id(eye_state) == "thinking") {
+        // Eyes looking up-right with animation
+        int offset_x = ((frame / 5) % 8) - 4;
+        int offset_y = -6 + ((frame / 5) % 4) - 2;
+        
+        it.circle(left_eye_x, eye_y, eye_radius);
+        it.circle(right_eye_x, eye_y, eye_radius);
+        it.filled_circle(left_eye_x + offset_x, eye_y + offset_y, pupil_radius);
+        it.filled_circle(right_eye_x + offset_x, eye_y + offset_y, pupil_radius);
+        
+        // Thinking dots
+        int dot_y = 55;
+        for (int i = 0; i < 3; i++) {
+          if ((frame / 15 + i * 5) % 15 < 5) {
+            it.filled_circle(54 + i * 10, dot_y, 2);
+          }
+        }
+      }
+      else if (id(eye_state) == "speaking") {
+        // Animated blinking/talking eyes
+        int blink_cycle = (frame / 8) % 20;
+        if (blink_cycle < 3) {
+          // Blink
+          it.line(left_eye_x - eye_radius, eye_y, left_eye_x + eye_radius, eye_y);
+          it.line(right_eye_x - eye_radius, eye_y, right_eye_x + eye_radius, eye_y);
+        } else {
+          // Open with varying pupil size (simulating expression)
+          int pupil_mod = (frame / 5) % 4;
+          it.circle(left_eye_x, eye_y, eye_radius);
+          it.circle(right_eye_x, eye_y, eye_radius);
+          it.filled_circle(left_eye_x, eye_y, pupil_radius - pupil_mod);
+          it.filled_circle(right_eye_x, eye_y, pupil_radius - pupil_mod);
+        }
+      }
+      else if (id(eye_state) == "error") {
+        // X eyes
+        it.line(left_eye_x - 8, eye_y - 8, left_eye_x + 8, eye_y + 8);
+        it.line(left_eye_x + 8, eye_y - 8, left_eye_x - 8, eye_y + 8);
+        it.line(right_eye_x - 8, eye_y - 8, right_eye_x + 8, eye_y + 8);
+        it.line(right_eye_x + 8, eye_y - 8, right_eye_x - 8, eye_y + 8);
+      }
+
+# Globals for animation state
+globals:
+  - id: eye_state
+    type: std::string
+    initial_value: '"idle"'
+  - id: blink_timer
+    type: int
+    initial_value: '0'
+
+api:
+  encryption:
+    key: !secret api_key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Enable fast connect for better performance
+  fast_connect: true
+  power_save_mode: none
+
+logger:
+  level: DEBUG
+  logs:
+    esp-idf: WARN
+    esp32.preferences: WARN
+
+ota:
+  - platform: esphome
