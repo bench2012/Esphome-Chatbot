@@ -1,0 +1,426 @@
+esphome:
+  name: esp32-s3-wake-word
+  friendly_name: ESP32-S3-Wake-word
+  platformio_options:
+    board_build.flash_mode: dio
+  on_boot:
+    - light.turn_on:
+        id: led_ww
+        blue: 100%
+        brightness: 60%
+        effect: fast pulse
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_AUDIO_BOARD_CUSTOM: "y"
+   
+psram:
+  mode: octal  # quad for N8R2 and octal for N16R8
+  speed: 80MHz
+
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api
+  on_client_connected:
+        then:
+          - delay: 50ms
+          - light.turn_off: led_ww
+          - micro_wake_word.start:
+  on_client_disconnected:
+        then:
+          - voice_assistant.stop: 
+
+
+
+ota:
+  - platform: esphome
+    password: !secret ota
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esp32-S3-Wake-Word"
+    password: "LJfUrdJk3svP"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+globals: 
+  - id: anim_frame 
+    type: int 
+    restore_value: no 
+    initial_value: '0'
+
+interval:
+  - interval: 200ms 
+    then:
+     - lambda: |-
+        id(anim_frame)++;
+        if (id(anim_frame) > 3) id(anim_frame) = 0;
+
+text_sensor:
+  - platform: template
+    id: user_text
+    name: "Voice Assistant Heard"
+
+  - platform: template
+    id: assistant_response
+    name: "Vocie Assistant Reply"
+
+  - platform: template 
+    id: va_status 
+    name: "Voice Assistant Status"
+
+
+font:
+  - file: "fonts/arial.ttf"
+    id: my_font
+    size: 10
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 200ms
+    lambda: |-
+      it.fill(COLOR_OFF);
+      if (id(va_status).state == "listening") {
+        it.circle(60, 18, 4 + id(anim_frame), COLOR_ON); // capsule head 
+        it.line(60, 34, 60, 18, COLOR_ON); // vertical stem 
+        it.line(56, 34, 64, 34, COLOR_ON); // base line
+      } else if (id(va_status).state == "thinking") {
+        for (int i = 0; i < 4; i++) {
+          if (i == id(anim_frame)) {
+            it.filled_circle(30 + i*20, 20, 3, COLOR_ON);
+          } else {
+            it.circle(30 + i*20, 20, 3, COLOR_ON);
+          }
+        }
+       
+      } else if (id(va_status).state == "reply") {
+            it.line(40, 20, 55, 30, COLOR_ON);
+            it.line(55, 30, 90, 10, COLOR_ON);
+       } 
+      it.printf(0, 30, id(my_font), "Status: %s", id(va_status).state.c_str());
+      it.printf(0, 40, id(my_font), "Heard: %s", id(user_text).state.c_str());
+      it.printf(0, 50, id(my_font), "Reply: %s", id(assistant_response).state.c_str());
+      // Volume bar (0–100% mapped to 100px width)
+      int vol = int(id(external_media_player).volume * 100);
+      int bar = int(id(external_media_player).volume * 60);
+      it.printf(70, 1, id(my_font), "Vol: %d%%", vol);
+      it.rectangle(124, 1, 126, 60, COLOR_ON); // outline
+      it.filled_rectangle(124, 60 - bar, 126, 60, COLOR_ON); // fill bar
+
+
+
+button:
+  - platform: restart
+    name: "Restart"
+    id: but_rest
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO40
+    name: "Volume Up Button"
+    on_press:
+      then:
+        - media_player.volume_up: external_media_player
+
+  - platform: gpio
+    pin: GPIO39
+    name: "Volume Down Button"
+    on_press:
+      then:
+        - media_player.volume_down: external_media_player
+
+switch:
+  - platform: template
+    id: timer_ringing
+    optimistic: true
+    internal: False
+    name: "Timer Ringing"
+    restore_mode: ALWAYS_OFF
+    
+  - platform: template
+    id: mute
+    name: mute
+    optimistic: true
+    on_turn_on: 
+      - micro_wake_word.stop:
+      - voice_assistant.stop:
+      - light.turn_on:
+          id: led_ww           
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 60%
+          effect: fast pulse 
+      - delay: 2s
+      - light.turn_off:
+          id: led_ww
+      - light.turn_on:
+          id: led_ww           
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 30%
+    on_turn_off:
+      - micro_wake_word.start:
+      - light.turn_on:
+          id: led_ww           
+          red: 0%
+          green: 100%
+          blue: 0%
+          brightness: 60%
+          effect: fast pulse 
+      - delay: 2s
+      - light.turn_off:
+          id: led_ww 
+   
+light:
+  - platform: esp32_rmt_led_strip
+    id: led_ww
+    rgb_order: GRB
+    pin: GPIO48
+    num_leds: 1
+    chipset: ws2812
+    name: "on board light"
+    effects:
+      - pulse:
+          name: "Slow Pulse"
+          transition_length: 250ms
+          update_interval: 250ms
+          min_brightness: 50%
+          max_brightness: 100%   
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 100ms
+          update_interval: 100ms
+          min_brightness: 50%
+          max_brightness: 100%
+          
+i2c:
+  sda: GPIO41  # Change to your board's SDA pin
+  scl: GPIO42  # Change to your board's SCL pin
+  scan: true   
+
+ # Audio and Voice Assistant Config          
+i2s_audio:
+  - id: i2s_in
+    i2s_lrclk_pin: GPIO4  #WS 
+    i2s_bclk_pin: GPIO5 #SCK
+  - id: i2s_speaker
+    i2s_lrclk_pin: GPIO16  #LRC 
+    i2s_bclk_pin: GPIO15 #BLCK
+
+microphone:
+  - platform: i2s_audio
+    id: va_mic
+    adc_type: external
+    i2s_din_pin: GPIO6 #SD pin on the INMP441
+    pdm: false
+    i2s_audio_id: i2s_in
+    bits_per_sample: 32 bit
+    channel: left
+    
+speaker:
+   - platform: i2s_audio
+     id: va_speaker
+     i2s_audio_id: i2s_speaker
+     dac_type: external
+     i2s_dout_pin: GPIO7   #  DIN Pin of the MAX98357A Audio Amplifier
+     channel: mono
+     sample_rate: 16000
+    
+   - platform: mixer
+     id: mixing_speaker
+     output_speaker: va_speaker
+     num_channels: 1
+     source_speakers:
+      - id: announcement_mixing_input
+        timeout: never
+      - id: media_mixing_input
+        timeout: never
+
+micro_wake_word:
+  id: mww
+  vad:
+    probability_cutoff: 0.05
+  microphone:
+    microphone: va_mic
+    channels: 0
+    gain_factor: 4
+  stop_after_detection: false
+  models:
+    - model: hey_jarvis
+      probability_cutoff: 0.5
+      sliding_window_size: 5
+    - model: okay_nabu
+      probability_cutoff: 0.5
+      sliding_window_size: 5
+    - model: hey_mycroft
+      probability_cutoff: 0.5
+      sliding_window_size: 5
+  on_wake_word_detected:
+    # then:
+    - voice_assistant.start:
+        wake_word: !lambda return wake_word;
+        silence_detection: true
+    - light.turn_on:
+        id: led_ww           
+        red: 30%
+        green: 30%
+        blue: 70%
+        brightness: 60%
+        effect: fast pulse 
+
+media_player:
+  - platform: speaker
+    id: external_media_player
+    name: "Voice Assistant Speaker"   
+    volume_increment: 0.05
+    volume_min: 0.4 
+    volume_max: 1
+    announcement_pipeline:
+      speaker: announcement_mixing_input
+      format: FLAC
+      num_channels: 1
+      sample_rate: 16000
+    media_pipeline: 
+      speaker: media_mixing_input
+      format: FLAC
+      num_channels: 1
+      sample_rate: 16000
+    on_announcement:
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 20
+          duration: 0.0s
+    files:
+      - id: timer_audio
+        file: https://github.com/esphome/home-assistant-voice-pe/raw/refs/heads/dev/sounds/wake_word_triggered.flac
+
+voice_assistant:
+  id: va
+  microphone: va_mic
+  noise_suppression_level: 2.0
+  auto_gain: 0 dbfs
+  volume_multiplier: 4.0
+  media_player: external_media_player
+  micro_wake_word: mww
+  use_wake_word: false
+
+  on_listening:
+    - light.turn_on:
+        id: led_ww          
+        red: 80%
+        green: 0%
+        blue: 80%
+        brightness: 60%
+        effect: fast pulse 
+    - lambda: |-
+        id(va_status).publish_state("listening");
+        id(anim_frame) = 0; 
+
+  on_stt_vad_start: 
+    - light.turn_on:
+        id: led_ww          
+        red: 0%
+        green: 80%
+        blue: 80%
+        brightness: 60%
+        effect: Slow pulse 
+      
+  on_stt_vad_end: #thinking phase
+    - light.turn_on:
+        id: led_ww           
+        red: 80%
+        green: 0%
+        blue: 80%
+        brightness: 60%
+        effect: Slow Pulse 
+    - lambda: |- 
+        id(va_status).publish_state("thinking");
+        id(anim_frame) = 0; 
+  on_stt_end: 
+    - lambda: |-
+       id(va_status).publish_state("Recognized");
+       id(user_text).publish_state(x);
+
+  on_tts_end: 
+    - lambda: |-
+        id(va_status).publish_state("reply");
+        id(anim_frame) = 0; 
+        if (x.find("http://") == 0 || x.find("https://") == 0) {
+          id(assistant_response).publish_state("Reply spoken");
+        } else {
+          id(assistant_response).publish_state(x);
+        }
+
+  on_error:
+    - micro_wake_word.start:  
+
+  on_tts_start:
+    - light.turn_on:
+        id: led_ww          
+        red: 0%
+        green: 0%
+        blue: 80%
+        brightness: 60%
+        effect: Slow Pulse 
+
+
+  on_end:
+        then:
+        
+          - wait_until:
+              not:
+                voice_assistant.is_running:
+          # Stop ducking audio.        
+          - mixer_speaker.apply_ducking:
+              id: media_mixing_input
+              decibel_reduction: 0
+              duration: 1.0s
+          - light.turn_off: led_ww
+          - micro_wake_word.start:
+          - delay: 10s
+          - lambda: |-
+              id(user_text).publish_state("...");
+              id(assistant_response).publish_state("ready");
+
+  on_timer_finished:
+    - switch.turn_on: timer_ringing
+    - light.turn_on:
+        id: led_ww
+        effect: "Slow Pulse"
+        red: 80%
+        green: 0%
+        blue: 30%
+        brightness: 80%
+
+    - while:
+        condition:
+          switch.is_on: timer_ringing
+        then:
+          # - nabu.play_local_media_file: timer_audio
+          - delay: 2s
+    - light.turn_off: led_ww
+    - micro_wake_word.start:
