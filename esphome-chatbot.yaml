@@ -390,10 +390,20 @@ display:
         it.line(right_eye_x - 8, eye_y - 8, right_eye_x + 8, eye_y + 8);
         it.line(right_eye_x + 8, eye_y - 8, right_eye_x - 8, eye_y + 8);
       }
-      int vol = int(id(external_media_player).volume * 100);
-      int bar = int(id(external_media_player).volume * 60);
-      it.rectangle(124, 1, 126, 60, COLOR_ON); // outline
-      it.filled_rectangle(124, 60 - bar, 126, 60, COLOR_ON); // fill bar
+      int bar = int(id(external_media_player).volume * 60);      
+      if (bar != id(last_bar)) { 
+        id(last_bar) = bar;
+        id(bar_timer) = 30;
+      }
+      if (id(bar_timer) > 0) {
+        id(bar_timer)--;
+        int bar = int(id(external_media_player).volume * 60);
+        it.rectangle(124, 1, 126, 60, COLOR_ON); // outline
+        it.filled_rectangle(124, 60 - bar, 126, 60, COLOR_ON); // fill bar
+      } else {
+        it.rectangle(124, 1, 126, 60, COLOR_OFF); // outline
+        it.filled_rectangle(124, 60 - bar, 126, 60, COLOR_OFF); // fill bar
+      }
 
 # Globals for animation state
 globals:
@@ -403,6 +413,12 @@ globals:
   - id: blink_timer
     type: int
     initial_value: '0'
+  - id: last_bar
+    type: int
+    initial_value: "0"
+  - id: bar_timer
+    type: int
+    initial_value: "0"
 
 api:
   encryption:
