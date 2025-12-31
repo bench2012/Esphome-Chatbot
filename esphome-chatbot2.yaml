@@ -1,0 +1,441 @@
+esphome:
+  name: chat-robot2
+  friendly_name: Chat Robot 2
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.f_flash: 80000000L
+    board_build.flash_size: 16MB
+  on_boot:
+      then:
+        - light.turn_on:
+            id: led_ww
+            blue: 100%
+            brightness: 60%
+            effect: fast pulse 
+        - lambda: |-
+            id(eye_state) = "idle";
+
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_SPIRAM_MODE_OCT: "y"
+      CONFIG_SPIRAM_SPEED_80M: "y"
+      CONFIG_SPIRAM: "y"
+      CONFIG_ESP32_S3_BOX_BOARD: "y"
+  
+psram:
+  mode: octal
+  speed: 80MHz
+
+button:
+  - platform: restart
+    name: "Restart"
+    id: but_rest
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO40
+    name: "Volume Up Button"
+    on_press:
+      then:
+        - media_player.volume_up: external_media_player
+
+  - platform: gpio
+    pin: GPIO39
+    name: "Volume Down Button"
+    on_press:
+      then:
+        - media_player.volume_down: external_media_player
+
+switch:   
+  - platform: template
+    id: mute
+    name: mute
+    optimistic: true
+    on_turn_on: 
+      - micro_wake_word.stop:
+      - voice_assistant.stop:
+      - light.turn_on:
+          id: led_ww           
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 60%
+          effect: fast pulse 
+      - delay: 2s
+      - light.turn_off:
+          id: led_ww
+      - light.turn_on:
+          id: led_ww           
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 30%
+    on_turn_off:
+      - micro_wake_word.start:
+      - light.turn_on:
+          id: led_ww           
+          red: 0%
+          green: 100%
+          blue: 0%
+          brightness: 60%
+          effect: fast pulse 
+      - delay: 2s
+      - light.turn_off:
+          id: led_ww 
+   
+light:
+  - platform: esp32_rmt_led_strip
+    id: led_ww
+    rgb_order: GRB
+    pin: GPIO48
+    num_leds: 1
+    chipset: ws2812
+    name: "on board light"
+    effects:
+      - pulse:
+          name: "Slow Pulse"
+          transition_length: 250ms
+          update_interval: 250ms
+          min_brightness: 50%
+          max_brightness: 100%   
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 100ms
+          update_interval: 100ms
+          min_brightness: 50%
+          max_brightness: 100%
+
+# I2C for OLED display
+i2c:
+  sda: GPIO41
+  scl: GPIO42
+  scan: true
+  frequency: 400kHz
+  id: bus_a
+ 
+
+# I2S Audio configuration
+i2s_audio:
+  - id: i2s_in
+    i2s_lrclk_pin: GPIO4
+    i2s_bclk_pin: GPIO5
+  - id: i2s_out
+    i2s_lrclk_pin: GPIO16
+    i2s_bclk_pin: GPIO15
+
+# Microphone
+microphone:
+  - platform: i2s_audio
+    id: mic
+    adc_type: external
+    i2s_audio_id: i2s_in
+    i2s_din_pin: GPIO6
+    pdm: false
+    bits_per_sample: 32bit
+    sample_rate: 16000
+    channel: left
+
+# Speaker
+speaker:
+  - platform: i2s_audio
+    id: speaker_out
+    i2s_audio_id: i2s_out
+    dac_type: external
+    i2s_dout_pin: GPIO7
+    channel: mono
+    sample_rate: 16000
+  
+  - platform: mixer
+    id: mixing_speaker
+    output_speaker: speaker_out
+    num_channels: 1
+    source_speakers:
+    - id: announcement_mixing_input
+      timeout: never
+    - id: media_mixing_input
+      timeout: never
+
+media_player:
+  - platform: speaker
+    id: external_media_player
+    name: "Voice Assistant Speaker"   
+    volume_increment: 0.05
+    volume_min: 0.4 
+    volume_max: 1
+    announcement_pipeline:
+      speaker: announcement_mixing_input
+      format: FLAC
+      num_channels: 1
+      sample_rate: 16000
+    media_pipeline: 
+      speaker: media_mixing_input
+      format: FLAC
+      num_channels: 1
+      sample_rate: 16000
+    on_announcement:
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 20
+          duration: 0.0s
+
+
+# Micro Wake Word - with PSRAM you can use larger models
+micro_wake_word:
+  id: mww
+  vad:
+    probability_cutoff: 0.05
+  microphone:
+    microphone: mic
+    channels: 0
+    gain_factor: 4
+  stop_after_detection: false
+  models:
+    - model: hey_jarvis
+      probability_cutoff: 0.5
+      sliding_window_size: 5
+    - model: okay_nabu
+      probability_cutoff: 0.5
+      sliding_window_size: 5
+    - model: hey_mycroft
+      probability_cutoff: 0.5
+      sliding_window_size: 5
+  on_wake_word_detected:
+    - voice_assistant.start:
+        wake_word: !lambda return wake_word;
+        silence_detection: true
+    - lambda: |-
+        id(eye_state) = "listening";
+        id(blink_timer) = 0;
+
+# Voice Assistant
+voice_assistant:
+  microphone: mic
+  media_player: external_media_player
+  use_wake_word: false
+  micro_wake_word: mww
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+
+  on_listening:
+    - light.turn_on:
+        id: led_ww          
+        red: 80%
+        green: 0%
+        blue: 80%
+        brightness: 60%
+        effect: fast pulse     
+    - lambda: |-
+        id(eye_state) = "listening";
+
+  on_stt_vad_start: 
+    - light.turn_on:
+        id: led_ww          
+        red: 0%
+        green: 80%
+        blue: 80%
+        brightness: 60%
+        effect: Slow pulse 
+      
+  on_stt_vad_end: #thinking phase
+    - light.turn_on:
+        id: led_ww           
+        red: 80%
+        green: 0%
+        blue: 80%
+        brightness: 60%
+        effect: Slow Pulse 
+
+  on_stt_end:
+    - lambda: |-
+        id(eye_state) = "thinking";
+  on_tts_start:
+    - light.turn_on:
+        id: led_ww          
+        red: 0%
+        green: 0%
+        blue: 80%
+        brightness: 60%
+        effect: Slow Pulse 
+    - lambda: |-
+        id(eye_state) = "speaking";
+  on_end:
+        then:
+        
+          - wait_until:
+              not:
+                voice_assistant.is_running:
+          # Stop ducking audio.        
+          - mixer_speaker.apply_ducking:
+              id: media_mixing_input
+              decibel_reduction: 0
+              duration: 1.0s
+          - light.turn_off: led_ww
+          - micro_wake_word.start:
+          - delay: 10s    
+          - lambda: |-
+              id(eye_state) = "idle";
+              id(blink_timer) = 0;
+  on_error:
+    - lambda: |-
+        id(eye_state) = "error";
+        id(blink_timer) = 0;
+
+# OLED Display
+font:
+  - file: "fonts/arial.ttf"
+    id: font_small
+    size: 10
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    update_interval: 50ms  # 20 FPS for smooth animation
+    lambda: |-
+      // Animation counter
+      static int frame = 0;
+      frame++;
+      
+      int left_eye_x = 35;
+      int right_eye_x = 93;
+      int eye_y = 32;
+      int eye_radius = 14;
+      int pupil_radius = 8;
+      
+      // Blink animation
+      bool is_blinking = false;
+      if (id(eye_state) == "idle" || id(eye_state) == "listening") {
+        id(blink_timer)++;
+        if (id(blink_timer) > 100 && id(blink_timer) < 106) {
+          is_blinking = true;
+        } else if (id(blink_timer) > 110) {
+          id(blink_timer) = 0;
+        }
+      }
+      
+      if (id(eye_state) == "idle") {
+        // Draw normal eyes with occasional blink
+        if (is_blinking) {
+         id(anim_blink).next_frame();
+         it.image(8, 4, id(anim_blink), COLOR_ON, COLOR_OFF);
+        }
+      }
+      else if (id(eye_state) == "listening") {
+         id(anim_half_blink).next_frame();
+         it.image(8, 4, id(anim_half_blink), COLOR_ON, COLOR_OFF);
+      }
+      else if (id(eye_state) == "thinking") {
+        id(anim_thinking).next_frame();
+        it.image(8, 4, id(anim_thinking), COLOR_ON, COLOR_OFF);
+        // Thinking dots
+        int dot_y = 55;
+        for (int i = 0; i < 3; i++) {
+          if ((frame / 15 + i * 5) % 15 < 5) {
+            it.filled_circle(54 + i * 10, dot_y, 2);
+          }
+        }
+      }
+      else if (id(eye_state) == "speaking") {
+        id(anim_sad).next_frame();
+        it.image(8, 4, id(anim_sad), COLOR_ON, COLOR_OFF);
+      }
+      else if (id(eye_state) == "error") {
+        // X eyes
+        it.line(left_eye_x - 8, eye_y - 8, left_eye_x + 8, eye_y + 8);
+        it.line(left_eye_x + 8, eye_y - 8, left_eye_x - 8, eye_y + 8);
+        it.line(right_eye_x - 8, eye_y - 8, right_eye_x + 8, eye_y + 8);
+        it.line(right_eye_x + 8, eye_y - 8, right_eye_x - 8, eye_y + 8);
+      }
+      int bar = int(id(external_media_player).volume * 60);      
+      if (bar != id(last_bar)) { 
+        id(last_bar) = bar;
+        id(bar_timer) = 30;
+      }
+      if (id(bar_timer) > 0) {
+        id(bar_timer)--;
+        int bar = int(id(external_media_player).volume * 60);
+        it.rectangle(124, 1, 126, 60, COLOR_ON); // outline
+        it.filled_rectangle(124, 60 - bar, 126, 60, COLOR_ON); // fill bar
+      } else {
+        it.rectangle(124, 1, 126, 60, COLOR_OFF); // outline
+        it.filled_rectangle(124, 60 - bar, 126, 60, COLOR_OFF); // fill bar
+      }
+
+# Globals for animation state
+globals:
+  - id: eye_state
+    type: std::string
+    initial_value: '"idle"'
+  - id: blink_timer
+    type: int
+    initial_value: '0'
+  - id: last_bar
+    type: int
+    initial_value: "0"
+  - id: bar_timer
+    type: int
+    initial_value: "0"
+
+# --- GIF Animations ---
+animation:
+  - file: "gifs/Robo_eye_blink.gif"
+    id: anim_blink
+    resize: 128x64
+    type: BINARY
+
+  - file: "gifs/Robo_eye_half_blink.gif"
+    id: anim_half_blink
+    resize: 128x64
+    type: BINARY 
+
+  - file: "gifs/Robo_eye_sad.gif"
+    id: anim_sad
+    resize: 128x64
+    type: BINARY 
+
+  - file: "gifs/Robo_eye_thinking.gif"
+    id: anim_thinking
+    resize: 128x64
+    type: BINARY 
+    
+api:
+  encryption:
+    key: !secret api
+  on_client_connected:
+        then:
+          - delay: 50ms
+          - micro_wake_word.start:
+  on_client_disconnected:
+        then:
+          - voice_assistant.stop: 
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Enable fast connect for better performance
+  fast_connect: true
+  power_save_mode: none
+  ap:
+    ssid: "Esp32-S3-Wake-Word"
+    password: ""
+
+captive_portal:
+
+web_server:
+  port: 80
+
+logger:
+  level: DEBUG
+
+ota:
+  - platform: esphome
+    password: !secret ota
