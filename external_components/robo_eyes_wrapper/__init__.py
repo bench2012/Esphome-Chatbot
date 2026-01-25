@@ -8,6 +8,7 @@ RoboEyesComponent = robo_eyes_ns.class_('RoboEyesComponent', cg.Component)
 
 # Define the Action class link
 SetMoodAction = robo_eyes_ns.class_("SetMoodAction", automation.Action)
+SetShapeAction = robo_eyes_ns.class_("SetShapeAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RoboEyesComponent),
@@ -33,6 +34,40 @@ SET_MOOD_ACTION_SCHEMA = cv.Schema({
     cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
     cv.Required("mood"): cv.templatable(cv.string),
 })
+
+SET_SHAPE_ACTION_SCHEMA = cv.Schema({
+    cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+    cv.Optional("width"): cv.templatable(cv.int_),
+    cv.Optional("height"): cv.templatable(cv.int_),
+    cv.Optional("radius"): cv.templatable(cv.int_),
+    cv.Optional("space"): cv.templatable(cv.int_),
+    cv.Optional("cyclops"): cv.templatable(cv.boolean),
+})
+
+@automation.register_action("robo_eyes.set_shape", SetShapeAction, SET_SHAPE_ACTION_SCHEMA)
+async def set_shape_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    # Create the action object with ONLY the parent and template_arg
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    
+    # Use setters for each optional field to avoid the "config" object error
+    if "width" in config:
+        template_ = await cg.templatable(config["width"], args, cg.int_)
+        cg.add(var.set_width(template_))
+    if "height" in config:
+        template_ = await cg.templatable(config["height"], args, cg.int_)
+        cg.add(var.set_height(template_))
+    if "radius" in config:
+        template_ = await cg.templatable(config["radius"], args, cg.int_)
+        cg.add(var.set_radius(template_))
+    if "space" in config:
+        template_ = await cg.templatable(config["space"], args, cg.int_)
+        cg.add(var.set_space(template_))
+    if "cyclops" in config:
+        template_ = await cg.templatable(config["cyclops"], args, cg.bool_)
+        cg.add(var.set_cyclops(template_))
+        
+    return var
 
 # Re-register with the explicit schema
 @automation.register_action("robo_eyes.set_mood", SetMoodAction, SET_MOOD_ACTION_SCHEMA)

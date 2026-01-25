@@ -34,8 +34,19 @@ robo_eyes_wrapper:
 #  scl: GPIO42
 #  scan: true
 
-
-
+button:
+  - platform: template
+    name: "Reset Eyes to Square"
+    on_press:
+      then:
+        - robo_eyes.set_shape:
+            id: my_robo_eyes
+            width: 50
+            height: 36
+            radius: 10
+            space: 10
+            cyclops: false
+            
 # Enable logging
 logger:
   level: DEBUG # you can set to INFO, WARN, ERROR if you prefer less output
