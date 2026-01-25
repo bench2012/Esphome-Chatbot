@@ -1,0 +1,75 @@
+esphome:
+  name: roboeye-chatbot
+  friendly_name: RoboEye-Chatbot
+  platformio_options:
+    lib_ldf_mode: chain+  
+#  libraries:
+#    - Improv=https://github.com/FluxGarage/RoboEyes.git
+#    - adafruit/Adafruit SH110X
+#    - adafruit/Adafruit GFX Library
+#    - adafruit/Adafruit BusIO
+#    - Wire
+#    - SPI
+
+esp32: 
+  board: esp32-s3-devkitc1-n16r16
+
+  framework: 
+    type: arduino 
+
+external_components:
+  - source: 
+      type: local
+      path: external_components
+    components: robo_eyes_wrapper
+  
+robo_eyes_wrapper:
+  id: my_robo_eyes
+  
+
+
+# Standard I²C bus for SSD1306
+#i2c:
+#  sda: GPIO41
+#  scl: GPIO42
+#  scan: true
+
+
+
+# Enable logging
+logger:
+  level: DEBUG # you can set to INFO, WARN, ERROR if you prefer less output
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "5G/0qT+o5eapd/hRAWDFTkop4qWUjOiGJ4GDFePULPI="
+  services:
+    - service: robo_happy
+      then:
+        - robo_eyes.set_mood:
+            id: my_robo_eyes
+            mood: "HAPPY"  # Ensure mood is quoted as a string
+    - service: robo_angry
+      then:
+        - robo_eyes.set_mood:
+            id: my_robo_eyes
+            mood: "ANGRY"
+            
+ota:
+  - platform: esphome
+    password: "c761330ac5c1b2277363df6da670368e"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Roboeye-Chatbot Fallback Hotspot"
+    password: "hEfuymBbD2kb"
+
+captive_portal:
+
+web_server:
+  port: 80
