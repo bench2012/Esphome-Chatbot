@@ -19,6 +19,8 @@ ConfusedAction = robo_eyes_ns.class_("ConfusedAction", automation.Action)
 SetIdleModeAction = robo_eyes_ns.class_("SetIdleModeAction", automation.Action)
 SetHFlickerAction = robo_eyes_ns.class_("SetHFlickerAction", automation.Action)
 SetVFlickerAction = robo_eyes_ns.class_("SetVFlickerAction", automation.Action)
+SetAutoblinkerAction = robo_eyes_ns.class_("SetAutoblinkerAction", automation.Action)
+SetDisplayColorsAction = robo_eyes_ns.class_("SetDisplayColorsAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RoboEyesComponent),
@@ -185,4 +187,53 @@ async def set_vflicker_to_code(config, action_id, template_arg, args):
     template_amp = await cg.templatable(config["amplitude"], args, cg.uint8)
     cg.add(var.set_amplitude(template_amp))
     return var
+
+# --- Register Autoblinker Action ---
+@automation.register_action("robo_eyes.set_autoblinker", SetAutoblinkerAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("state"): cv.templatable(cv.boolean),
+        cv.Optional("interval"): cv.templatable(cv.int_),
+        cv.Optional("variation"): cv.templatable(cv.int_),
+    }))
+async def set_autoblinker_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    
+    # Set state (bool)
+    template_state = await cg.templatable(config["state"], args, cg.bool_)
+    cg.add(var.set_state(template_state))
+    
+    # Set interval (int, default 4 if not provided)
+    interval = config.get("interval", 4)
+    template_interval = await cg.templatable(interval, args, cg.int_)
+    cg.add(var.set_interval(template_interval))
+    
+    # Set variation (int, default 2 if not provided)
+    variation = config.get("variation", 2)
+    template_variation = await cg.templatable(variation, args, cg.int_)
+    cg.add(var.set_variation(template_variation))
+    
+    return var
+    
+@automation.register_action("robo_eyes.set_display_colors", SetDisplayColorsAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("background"): cv.templatable(cv.int_range(min=0, max=255)),
+        cv.Required("main"): cv.templatable(cv.int_range(min=0, max=255)),
+    }))
+async def set_display_colors_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    
+    # Process background color
+    template_bg = await cg.templatable(config["background"], args, cg.uint8)
+    cg.add(var.set_background(template_bg))
+    
+    # Process main/foreground color
+    template_main = await cg.templatable(config["main"], args, cg.uint8)
+    cg.add(var.set_main(template_main))
+    
+    return var
+ 
 

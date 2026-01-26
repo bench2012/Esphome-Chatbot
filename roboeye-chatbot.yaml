@@ -3,6 +3,9 @@ esphome:
   friendly_name: RoboEye-Chatbot
   platformio_options:
     lib_ldf_mode: chain+  
+    build_flags:
+      - -DARDUINO_USB_CDC_ON_BOOT=0
+      - -DARDUINO_USB_MODE=1
 #  libraries:
 #    - Improv=https://github.com/FluxGarage/RoboEyes.git
 #    - adafruit/Adafruit SH110X
@@ -77,7 +80,33 @@ button:
       then:
         - robo_eyes.confused:
             id: my_robo_eyes
-  
+
+  - platform: template
+    name: "Nervous Blinking"
+    on_press:
+      then:
+        - robo_eyes.set_autoblinker:
+            id: my_robo_eyes
+            state: true
+            interval: 1   # Blink every ~1 second
+            variation: 0
+  - platform: template
+    name: "RoboEye: Invert Colors"
+    on_press:
+      then:
+        - robo_eyes.set_display_colors:
+            id: my_robo_eyes
+            background: 1
+            main: 0
+
+  - platform: template
+    name: "RoboEye: Normal Colors"
+    on_press:
+      then:
+        - robo_eyes.set_display_colors:
+            id: my_robo_eyes
+            background: 0
+            main: 1
 
 select:
   - platform: template
@@ -193,10 +222,29 @@ switch:
             id: my_robo_eyes
             state: false
             amplitude: 0
+
+  - platform: template
+    name: "RoboEye Auto Blinking"
+    id: eye_blink_switch
+    optimistic: true
+    turn_on_action:
+      then:
+        - robo_eyes.set_autoblinker:
+            id: my_robo_eyes
+            state: true
+            interval: 4
+            variation: 2
+    turn_off_action:
+      then:
+        - robo_eyes.set_autoblinker:
+            id: my_robo_eyes
+            state: false
             
 # Enable logging
 logger:
   level: DEBUG # you can set to INFO, WARN, ERROR if you prefer less output
+#  hardware_uart: USB_SERIAL_JTAG
+#  baud_rate: 0  # Setting this to 0 for native USB is the 2026 standard
 
 # Enable Home Assistant API
 api:

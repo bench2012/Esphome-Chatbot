@@ -238,6 +238,60 @@ template<typename... Ts> class SetVFlickerAction : public Action<Ts...> {
   RoboEyesComponent *parent_;
 };
 
+template<typename... Ts> class SetAutoblinkerAction : public Action<Ts...> {
+ public:
+  SetAutoblinkerAction(RoboEyesComponent *parent) : parent_(parent) {}
+  
+  TEMPLATABLE_VALUE(bool, state)
+  TEMPLATABLE_VALUE(int, interval)
+  TEMPLATABLE_VALUE(int, variation)
+
+  void play(const Ts &...x) override { 
+    if(!this->parent_->ready_) return;
+    
+    // Resolve values from YAML or Lambdas
+    bool s = this->state_.value(x...);
+    int i = this->interval_.value(x...);
+    int v = this->variation_.value(x...);
+
+    this->parent_->roboEyes.setAutoblinker(s, i, v);
+    ESP_LOGD("robo_eyes", "Autoblinker set to: %s (Interval: %ds, Var: %ds)", s ? "ON" : "OFF", i, v);
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+template<typename... Ts> class SetDisplayColorsAction : public Action<Ts...> {
+ public:
+  SetDisplayColorsAction(RoboEyesComponent *parent) : parent_(parent) {}
+  
+  TEMPLATABLE_VALUE(uint8_t, background)
+  TEMPLATABLE_VALUE(uint8_t, main)
+
+  void play(const Ts &...x) override { 
+    if(!this->parent_->ready_) return;
+    
+    uint8_t bg = this->background_.value(x...);
+    uint8_t mn = this->main_.value(x...);
+
+    // FIX: If background is 1 (white) and main is 0 (black),
+    // we use the hardware inversion to clear the "eyebrow" artifact.
+    if (bg == 1 && mn == 0) {
+        this->parent_->display.invertDisplay(true);
+    } else {
+        this->parent_->display.invertDisplay(false);
+    }
+
+    // Also update the library colors for future draw calls
+    this->parent_->roboEyes.setDisplayColors(bg, mn);
+    
+    // Force a full redraw
+    this->parent_->roboEyes.update();
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
 
 // Add new action class here
 
