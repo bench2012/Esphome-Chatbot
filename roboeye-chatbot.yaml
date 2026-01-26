@@ -26,14 +26,6 @@ external_components:
 robo_eyes_wrapper:
   id: my_robo_eyes
   
-
-
-# Standard I²C bus for SSD1306
-#i2c:
-#  sda: GPIO41
-#  scl: GPIO42
-#  scan: true
-
 button:
   - platform: template
     name: "Reset Eyes to Square"
@@ -70,19 +62,6 @@ button:
             height: 40
             radius: 20
             cyclops: true
-  - platform: template
-    name: "RoboEye Profile: Angry Square"
-    on_press:
-      then:
-        - robo_eyes.set_mood:
-            id: my_robo_eyes
-            mood: "ANGRY"
-        - robo_eyes.set_shape:
-            id: my_robo_eyes
-            width: 30
-            height: 30
-            radius: 0
-            cyclops: false
 
 select:
   - platform: template
@@ -104,11 +83,27 @@ select:
         - robo_eyes.set_position:
             id: my_robo_eyes
             position: !lambda 'return x;'
+  - platform: template
+    name: "RoboEye Mood"
+    id: eye_mood_selector
+    options:
+      - "DEFAULT"
+      - "TIRED"
+      - "ANGRY"
+      - "HAPPY"
+    initial_option: "DEFAULT"
+    set_action:
+      then:
+        - robo_eyes.set_mood:
+            id: my_robo_eyes
+            mood: !lambda 'return x;'
 
 switch:
   - platform: template
     name: "RoboEye Sweat Mode"
     id: eye_sweat_switch
+    optimistic: true  # <--- Ensure this is set
+    restore_mode: ALWAYS_OFF  # Do not try to restore previous state
     turn_on_action:
       then:
         - robo_eyes.set_sweat:
@@ -123,6 +118,7 @@ switch:
   - platform: template
     name: "RoboEye Curiosity"
     id: eye_curiosity_switch
+    optimistic: true  # <--- Ensure this is set
     turn_on_action:
       then:
         - robo_eyes.set_curiosity:
