@@ -14,6 +14,8 @@ SetCuriosityAction = robo_eyes_ns.class_("SetCuriosityAction", automation.Action
 SetSweatAction = robo_eyes_ns.class_("SetSweatAction", automation.Action)
 OpenAction = robo_eyes_ns.class_("OpenAction", automation.Action)
 CloseAction = robo_eyes_ns.class_("CloseAction", automation.Action)
+LaughAction = robo_eyes_ns.class_("LaughAction", automation.Action)
+ConfusedAction = robo_eyes_ns.class_("ConfusedAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RoboEyesComponent),
@@ -124,6 +126,17 @@ async def open_to_code(config, action_id, template_arg, args):
 
 @automation.register_action("robo_eyes.close", CloseAction, cv.Schema({cv.Required(CONF_ID): cv.use_id(RoboEyesComponent)}))
 async def close_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
+
+@automation.register_action("robo_eyes.laugh", LaughAction, cv.Schema({cv.Required(CONF_ID): cv.use_id(RoboEyesComponent)}))
+async def laugh_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
+
+# --- Register Confused Action ---
+@automation.register_action("robo_eyes.confused", ConfusedAction, cv.Schema({cv.Required(CONF_ID): cv.use_id(RoboEyesComponent)}))
+async def confused_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(action_id, template_arg, parent)
 

@@ -62,6 +62,24 @@ button:
             height: 40
             radius: 20
             cyclops: true
+  - platform: template
+    name: "RoboEye: Laugh"
+    icon: "mdi:emoticon-laugh-outline"
+    on_press:
+      then:
+        - robo_eyes.laugh:
+            id: my_robo_eyes
+
+  - platform: template
+    name: "RoboEye: Confused"
+    icon: "mdi:help-circle-outline"
+    on_press:
+      then:
+        - robo_eyes.confused:
+            id: my_robo_eyes
+
+
+  
 
 select:
   - platform: template
@@ -129,7 +147,6 @@ switch:
         - robo_eyes.set_curiosity:
             id: my_robo_eyes
             state: False
-
 
 # Enable logging
 logger:

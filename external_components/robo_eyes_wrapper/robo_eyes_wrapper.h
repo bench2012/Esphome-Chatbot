@@ -158,6 +158,30 @@ template<typename... Ts> class CloseAction : public Action<Ts...> {
   RoboEyesComponent *parent_;
 };
 
+// NEW ACTION CLASSES
+
+template<typename... Ts> class LaughAction : public Action<Ts...> {
+ public:
+  LaughAction(RoboEyesComponent *parent) : parent_(parent) {}
+  void play(const Ts &...x) override { 
+    if(this->parent_->ready_) this->parent_->roboEyes.anim_laugh(); 
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+template<typename... Ts> class ConfusedAction : public Action<Ts...> {
+ public:
+  ConfusedAction(RoboEyesComponent *parent) : parent_(parent) {}
+  void play(const Ts &...x) override { 
+    if(this->parent_->ready_) this->parent_->roboEyes.anim_confused(); 
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+
+
 } // namespace robo_eyes
 } // namespace esphome
 
