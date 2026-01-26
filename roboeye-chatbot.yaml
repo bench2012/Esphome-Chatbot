@@ -147,6 +147,22 @@ switch:
         - robo_eyes.set_curiosity:
             id: my_robo_eyes
             state: False
+  - platform: template
+    name: "RoboEye Auto-Wander (Idle Mode)"
+    id: eye_idle_switch
+    icon: "mdi:eye-sync"
+    optimistic: true
+    restore_mode: ALWAYS_ON # Start with eyes looking around
+    turn_on_action:
+      then:
+        - robo_eyes.set_idle_mode:
+            id: my_robo_eyes
+            state: true
+    turn_off_action:
+      then:
+        - robo_eyes.set_idle_mode:
+            id: my_robo_eyes
+            state: false
 
 # Enable logging
 logger:

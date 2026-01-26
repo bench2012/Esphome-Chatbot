@@ -16,6 +16,7 @@ OpenAction = robo_eyes_ns.class_("OpenAction", automation.Action)
 CloseAction = robo_eyes_ns.class_("CloseAction", automation.Action)
 LaughAction = robo_eyes_ns.class_("LaughAction", automation.Action)
 ConfusedAction = robo_eyes_ns.class_("ConfusedAction", automation.Action)
+SetIdleModeAction = robo_eyes_ns.class_("SetIdleModeAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RoboEyesComponent),
@@ -139,4 +140,16 @@ async def laugh_to_code(config, action_id, template_arg, args):
 async def confused_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(action_id, template_arg, parent)
+
+# --- Register Idle Mode Action ---
+@automation.register_action("robo_eyes.set_idle_mode", SetIdleModeAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("state"): cv.templatable(cv.boolean),
+    }))
+async def set_idle_mode_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    template_ = await cg.templatable(config["state"], args, cg.bool_)
+    return cg.new_Pvariable(action_id, template_arg, parent, template_)
+
 

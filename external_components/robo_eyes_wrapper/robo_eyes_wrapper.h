@@ -180,7 +180,21 @@ template<typename... Ts> class ConfusedAction : public Action<Ts...> {
   RoboEyesComponent *parent_;
 };
 
+template<typename... Ts> class SetIdleModeAction : public Action<Ts...> {
+ public:
+  SetIdleModeAction(RoboEyesComponent *parent, TemplatableValue<bool, Ts...> state) : parent_(parent), state_(state) {}
+  void play(const Ts &...x) override { 
+    if(!this->parent_->ready_) return;
+    bool val = this->state_.value(x...);
+    this->parent_->roboEyes.setIdleMode(val);
+    ESP_LOGD("robo_eyes", "Idle Mode set to: %s", val ? "ON" : "OFF");
+  }
+ protected:
+  RoboEyesComponent *parent_;
+  TemplatableValue<bool, Ts...> state_;
+};
 
+// Add new action class here
 
 } // namespace robo_eyes
 } // namespace esphome
