@@ -9,6 +9,11 @@ RoboEyesComponent = robo_eyes_ns.class_('RoboEyesComponent', cg.Component)
 # Define the Action class link
 SetMoodAction = robo_eyes_ns.class_("SetMoodAction", automation.Action)
 SetShapeAction = robo_eyes_ns.class_("SetShapeAction", automation.Action)
+SetPositionAction = robo_eyes_ns.class_("SetPositionAction", automation.Action)
+SetCuriosityAction = robo_eyes_ns.class_("SetCuriosityAction", automation.Action)
+SetSweatAction = robo_eyes_ns.class_("SetSweatAction", automation.Action)
+OpenAction = robo_eyes_ns.class_("OpenAction", automation.Action)
+CloseAction = robo_eyes_ns.class_("CloseAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RoboEyesComponent),
@@ -44,6 +49,7 @@ SET_SHAPE_ACTION_SCHEMA = cv.Schema({
     cv.Optional("cyclops"): cv.templatable(cv.boolean),
 })
 
+# Rgister with the explicit schema for Set Shape
 @automation.register_action("robo_eyes.set_shape", SetShapeAction, SET_SHAPE_ACTION_SCHEMA)
 async def set_shape_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
@@ -69,11 +75,55 @@ async def set_shape_to_code(config, action_id, template_arg, args):
         
     return var
 
-# Re-register with the explicit schema
+# Re-register with the explicit schema for Set Mood
 @automation.register_action("robo_eyes.set_mood", SetMoodAction, SET_MOOD_ACTION_SCHEMA)
 async def set_mood_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
-    # Ensure we pass the mood value correctly from the config dictionary
-    return cg.new_Pvariable(action_id, template_arg, parent, config["mood"])
+    # Use await cg.templatable to handle !lambda 'return x;'
+    mood_template = await cg.templatable(config["mood"], args, cg.std_string)
+    return cg.new_Pvariable(action_id, template_arg, parent, mood_template)
 
+
+# --- Register Position Action ---
+@automation.register_action("robo_eyes.set_position", SetPositionAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("position"): cv.templatable(cv.string),
+    }))
+async def set_position_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    # Use await cg.templatable to handle !lambda 'return x;'
+    pos_template = await cg.templatable(config["position"], args, cg.std_string)
+    return cg.new_Pvariable(action_id, template_arg, parent, pos_template)
+
+# --- Register Curiosity/Sweat Actions (Boolean) ---
+@automation.register_action("robo_eyes.set_curiosity", SetCuriosityAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("state"): cv.templatable(cv.boolean),
+    }))
+    
+async def set_curiosity_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent, config["state"])
+
+@automation.register_action("robo_eyes.set_sweat", SetSweatAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("state"): cv.templatable(cv.boolean),
+    }))
+async def set_sweat_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent, config["state"])
+
+# --- Register Open/Close Actions ---
+@automation.register_action("robo_eyes.open", OpenAction, cv.Schema({cv.Required(CONF_ID): cv.use_id(RoboEyesComponent)}))
+async def open_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
+
+@automation.register_action("robo_eyes.close", CloseAction, cv.Schema({cv.Required(CONF_ID): cv.use_id(RoboEyesComponent)}))
+async def close_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
 

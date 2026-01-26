@@ -10,46 +10,11 @@
 namespace esphome {
 namespace robo_eyes {
 
-// 1. FORWARD DECLARATIONS
+// 1. FORWARD DECLARATION
 class RoboEyesComponent;
 
-// 2. MOOD ACTION CLASS
-template<typename... Ts> class SetMoodAction : public Action<Ts...> {
- public:
-  SetMoodAction(RoboEyesComponent *parent, std::string mood) : parent_(parent), mood_(mood) {}
-  void play(Ts... x) override;
- protected:
-  RoboEyesComponent *parent_;
-  std::string mood_;
-};
-
-// 3. SHAPE ACTION CLASS
-template<typename... Ts> class SetShapeAction : public Action<Ts...> {
- public:
-  SetShapeAction(RoboEyesComponent *parent) : parent_(parent) {}
-  
-  // Setter methods for Python's cg.add(var.set_...) calls
-  TEMPLATABLE_VALUE(int, width)
-  TEMPLATABLE_VALUE(int, height)
-  TEMPLATABLE_VALUE(int, radius)
-  TEMPLATABLE_VALUE(int, space)
-  TEMPLATABLE_VALUE(bool, cyclops)
-
-  void play(Ts... x) override {
-    // We pass -1 or -999 to indicate the value was NOT provided in YAML
-    this->parent_->set_shape(
-      this->width_.value_or(x..., -1),
-      this->height_.value_or(x..., -1),
-      this->radius_.value_or(x..., -1),
-      this->space_.value_or(x..., -999),
-      this->cyclops_.value_or(x..., false)
-    );
-  }
-
- protected:
-  RoboEyesComponent *parent_;
-};
-// 4. MAIN COMPONENT
+// 2. MAIN COMPONENT DEFINITION
+// We define this first so all Action classes can see its methods immediately.
 class RoboEyesComponent : public Component {
  public:
   Adafruit_SH1106G display = Adafruit_SH1106G(128, 64, &Wire, -1);
@@ -76,7 +41,6 @@ class RoboEyesComponent : public Component {
     else if (mood == "ANGRY") roboEyes.setMood(ANGRY);
     else if (mood == "TIRED") roboEyes.setMood(TIRED);
     else roboEyes.setMood(DEFAULT);
-    ESP_LOGD("robo_eyes", "Mood set to: %s", mood.c_str());
   }
 
   void set_shape(int w, int h, int r, int s, bool cyc) {
@@ -85,17 +49,91 @@ class RoboEyesComponent : public Component {
     if (r >= 0) roboEyes.setBorderradius(r, r);
     if (s != -999) roboEyes.setSpacebetween(s);
     roboEyes.setCyclops(cyc);
-    ESP_LOGD("robo_eyes", "Shape updated: W:%d H:%d R:%d S:%d C:%d", w, h, r, s, cyc);
   }
 };
 
-// 5. ACTION IMPLEMENTATIONS
-template<typename... Ts> 
-void SetMoodAction<Ts...>::play(Ts... x) {
-  this->parent_->set_mood(this->mood_);
-}
+// 3. ACTION CLASSES
+// Note: In 2026, play() MUST take 'const Ts &...x' to match the base class.
 
+template<typename... Ts> class SetMoodAction : public Action<Ts...> {
+ public:
+  SetMoodAction(RoboEyesComponent *parent, TemplatableValue<std::string, Ts...> mood) : parent_(parent), mood_(mood) {}
+  void play(const Ts &...x) override { this->parent_->set_mood(this->mood_.value(x...)); }
+ protected:
+  RoboEyesComponent *parent_;
+  TemplatableValue<std::string, Ts...> mood_;
+};
 
+template<typename... Ts> class SetPositionAction : public Action<Ts...> {
+ public:
+  SetPositionAction(RoboEyesComponent *parent, TemplatableValue<std::string, Ts...> pos) : parent_(parent), pos_(pos) {}
+  void play(const Ts &...x) override {
+    std::string p = this->pos_.value(x...);
+    if (p == "N") this->parent_->roboEyes.setPosition(N);
+    else if (p == "S") this->parent_->roboEyes.setPosition(S);
+    else if (p == "E") this->parent_->roboEyes.setPosition(E);
+    else if (p == "W") this->parent_->roboEyes.setPosition(W);
+    else if (p == "NE") this->parent_->roboEyes.setPosition(NE);
+    else if (p == "NW") this->parent_->roboEyes.setPosition(NW);
+    else if (p == "SE") this->parent_->roboEyes.setPosition(SE);
+    else if (p == "SW") this->parent_->roboEyes.setPosition(SW);
+    else this->parent_->roboEyes.setPosition(DEFAULT);
+  }
+ protected:
+  RoboEyesComponent *parent_;
+  TemplatableValue<std::string, Ts...> pos_;
+};
+
+template<typename... Ts> class SetCuriosityAction : public Action<Ts...> {
+ public:
+  SetCuriosityAction(RoboEyesComponent *parent, TemplatableValue<bool, Ts...> state) : parent_(parent), state_(state) {}
+  void play(const Ts &...x) override { this->parent_->roboEyes.setCuriosity(this->state_.value(x...)); }
+ protected:
+  RoboEyesComponent *parent_;
+  TemplatableValue<bool, Ts...> state_;
+};
+
+template<typename... Ts> class SetSweatAction : public Action<Ts...> {
+ public:
+  SetSweatAction(RoboEyesComponent *parent, TemplatableValue<bool, Ts...> state) : parent_(parent), state_(state) {}
+  void play(const Ts &...x) override { this->parent_->roboEyes.setSweat(this->state_.value(x...)); }
+ protected:
+  RoboEyesComponent *parent_;
+  TemplatableValue<bool, Ts...> state_;
+};
+
+template<typename... Ts> class SetShapeAction : public Action<Ts...> {
+ public:
+  SetShapeAction(RoboEyesComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(int, width)
+  TEMPLATABLE_VALUE(int, height)
+  TEMPLATABLE_VALUE(int, radius)
+  TEMPLATABLE_VALUE(int, space)
+  TEMPLATABLE_VALUE(bool, cyclops)
+  void play(const Ts &...x) override {
+    this->parent_->set_shape(this->width_.value_or(x..., -1), this->height_.value_or(x..., -1),
+                             this->radius_.value_or(x..., -1), this->space_.value_or(x..., -999),
+                             this->cyclops_.value_or(x..., false));
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+template<typename... Ts> class OpenAction : public Action<Ts...> {
+ public:
+  OpenAction(RoboEyesComponent *parent) : parent_(parent) {}
+  void play(const Ts &...x) override { this->parent_->roboEyes.open(); }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+template<typename... Ts> class CloseAction : public Action<Ts...> {
+ public:
+  CloseAction(RoboEyesComponent *parent) : parent_(parent) {}
+  void play(const Ts &...x) override { this->parent_->roboEyes.close(); }
+ protected:
+  RoboEyesComponent *parent_;
+};
 
 } // namespace robo_eyes
 } // namespace esphome

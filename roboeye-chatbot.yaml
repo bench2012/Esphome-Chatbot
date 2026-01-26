@@ -41,12 +41,100 @@ button:
       then:
         - robo_eyes.set_shape:
             id: my_robo_eyes
-            width: 50
+            width: 30
             height: 36
             radius: 10
             space: 10
             cyclops: false
-            
+  - platform: template
+    name: "RoboEye: Close Eyes"
+    icon: "mdi:eye-off"
+    on_press:
+      then:
+        - robo_eyes.close:
+            id: my_robo_eyes
+  - platform: template
+    name: "RoboEye: Open Eyes"
+    icon: "mdi:eye"
+    on_press:
+      then:
+        - robo_eyes.open:
+            id: my_robo_eyes
+  - platform: template
+    name: "RoboEye Profile: Cyclops"
+    on_press:
+      then:
+        - robo_eyes.set_shape:
+            id: my_robo_eyes
+            width: 40
+            height: 40
+            radius: 20
+            cyclops: true
+  - platform: template
+    name: "RoboEye Profile: Angry Square"
+    on_press:
+      then:
+        - robo_eyes.set_mood:
+            id: my_robo_eyes
+            mood: "ANGRY"
+        - robo_eyes.set_shape:
+            id: my_robo_eyes
+            width: 30
+            height: 30
+            radius: 0
+            cyclops: false
+
+select:
+  - platform: template
+    name: "RoboEye Look Direction"
+    id: eye_position_selector
+    options:
+      - "DEFAULT"
+      - "N"
+      - "NE"
+      - "E"
+      - "SE"
+      - "S"
+      - "SW"
+      - "W"
+      - "NW"
+    initial_option: "DEFAULT"
+    set_action:
+      then:
+        - robo_eyes.set_position:
+            id: my_robo_eyes
+            position: !lambda 'return x;'
+
+switch:
+  - platform: template
+    name: "RoboEye Sweat Mode"
+    id: eye_sweat_switch
+    turn_on_action:
+      then:
+        - robo_eyes.set_sweat:
+            id: my_robo_eyes
+            state: true
+    turn_off_action:
+      then:
+        - robo_eyes.set_sweat:
+            id: my_robo_eyes
+            state: false
+
+  - platform: template
+    name: "RoboEye Curiosity"
+    id: eye_curiosity_switch
+    turn_on_action:
+      then:
+        - robo_eyes.set_curiosity:
+            id: my_robo_eyes
+            state: true
+    turn_off_action:
+      then:
+        - robo_eyes.set_curiosity:
+            id: my_robo_eyes
+            state: False
+
+
 # Enable logging
 logger:
   level: DEBUG # you can set to INFO, WARN, ERROR if you prefer less output
