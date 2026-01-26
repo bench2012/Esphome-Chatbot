@@ -77,8 +77,6 @@ button:
       then:
         - robo_eyes.confused:
             id: my_robo_eyes
-
-
   
 
 select:
@@ -163,7 +161,39 @@ switch:
         - robo_eyes.set_idle_mode:
             id: my_robo_eyes
             state: false
+  
+  - platform: template
+    name: "RoboEye: Glitch Mode (Horizontal)"
+    optimistic: true
+    turn_on_action:
+      then:
+        - robo_eyes.set_hflicker:
+            id: my_robo_eyes
+            state: true
+            amplitude: 15
+    turn_off_action:
+      then:
+        - robo_eyes.set_hflicker:
+            id: my_robo_eyes
+            state: false
+            amplitude: 0
 
+  - platform: template
+    name: "RoboEye: Jitter Mode (Vertical)"
+    optimistic: true
+    turn_on_action:
+      then:
+        - robo_eyes.set_vflicker:
+            id: my_robo_eyes
+            state: true
+            amplitude: 20
+    turn_off_action:
+      then:
+        - robo_eyes.set_vflicker:
+            id: my_robo_eyes
+            state: false
+            amplitude: 0
+            
 # Enable logging
 logger:
   level: DEBUG # you can set to INFO, WARN, ERROR if you prefer less output

@@ -17,6 +17,8 @@ CloseAction = robo_eyes_ns.class_("CloseAction", automation.Action)
 LaughAction = robo_eyes_ns.class_("LaughAction", automation.Action)
 ConfusedAction = robo_eyes_ns.class_("ConfusedAction", automation.Action)
 SetIdleModeAction = robo_eyes_ns.class_("SetIdleModeAction", automation.Action)
+SetHFlickerAction = robo_eyes_ns.class_("SetHFlickerAction", automation.Action)
+SetVFlickerAction = robo_eyes_ns.class_("SetVFlickerAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(RoboEyesComponent),
@@ -152,4 +154,35 @@ async def set_idle_mode_to_code(config, action_id, template_arg, args):
     template_ = await cg.templatable(config["state"], args, cg.bool_)
     return cg.new_Pvariable(action_id, template_arg, parent, template_)
 
+# --- Register HFlicker Action ---
+@automation.register_action("robo_eyes.set_hflicker", SetHFlickerAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("state"): cv.templatable(cv.boolean),
+        cv.Required("amplitude"): cv.templatable(cv.int_range(min=0, max=255)),
+    }))
+async def set_hflicker_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    template_state = await cg.templatable(config["state"], args, cg.bool_)
+    cg.add(var.set_state(template_state))
+    template_amp = await cg.templatable(config["amplitude"], args, cg.uint8)
+    cg.add(var.set_amplitude(template_amp))
+    return var
+
+# --- Register VFlicker Action ---
+@automation.register_action("robo_eyes.set_vflicker", SetVFlickerAction, 
+    cv.Schema({
+        cv.Required(CONF_ID): cv.use_id(RoboEyesComponent),
+        cv.Required("state"): cv.templatable(cv.boolean),
+        cv.Required("amplitude"): cv.templatable(cv.int_range(min=0, max=255)),
+    }))
+async def set_vflicker_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    template_state = await cg.templatable(config["state"], args, cg.bool_)
+    cg.add(var.set_state(template_state))
+    template_amp = await cg.templatable(config["amplitude"], args, cg.uint8)
+    cg.add(var.set_amplitude(template_amp))
+    return var
 

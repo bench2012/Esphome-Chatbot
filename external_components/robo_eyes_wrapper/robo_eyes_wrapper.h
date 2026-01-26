@@ -194,6 +194,51 @@ template<typename... Ts> class SetIdleModeAction : public Action<Ts...> {
   TemplatableValue<bool, Ts...> state_;
 };
 
+template<typename... Ts> class SetHFlickerAction : public Action<Ts...> {
+ public:
+  SetHFlickerAction(RoboEyesComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(bool, state)
+  TEMPLATABLE_VALUE(uint8_t, amplitude)
+
+  void play(const Ts &...x) override { 
+    if(!this->parent_->ready_) return;
+    bool s = this->state_.value(x...);
+    uint8_t a = s ? this->amplitude_.value(x...) : 0; // Force 0 if false
+    
+    this->parent_->roboEyes.setHFlicker(s, a);
+    
+    // 2026 Fix: If turning off, force a redraw to center the eyes
+    if (!s) {
+        this->parent_->roboEyes.update();
+    }
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+template<typename... Ts> class SetVFlickerAction : public Action<Ts...> {
+ public:
+  SetVFlickerAction(RoboEyesComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(bool, state)
+  TEMPLATABLE_VALUE(uint8_t, amplitude)
+
+  void play(const Ts &...x) override { 
+    if(!this->parent_->ready_) return;
+    bool s = this->state_.value(x...);
+    uint8_t a = s ? this->amplitude_.value(x...) : 0; // Force 0 if false
+
+    this->parent_->roboEyes.setVFlicker(s, a);
+    
+    // 2026 Fix: Force redraw to reset vertical alignment
+    if (!s) {
+        this->parent_->roboEyes.update();
+    }
+  }
+ protected:
+  RoboEyesComponent *parent_;
+};
+
+
 // Add new action class here
 
 } // namespace robo_eyes
