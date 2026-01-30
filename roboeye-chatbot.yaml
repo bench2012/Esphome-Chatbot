@@ -4,8 +4,12 @@ esphome:
   platformio_options:
     lib_ldf_mode: chain+  
     build_flags:
-      - -DARDUINO_USB_CDC_ON_BOOT=0
+      - -DARDUINO_USB_CDC_ON_BOOT=1
       - -DARDUINO_USB_MODE=1
+    board_build.flash_mode: dio
+    board_build.f_flash: 80000000L
+    board_build.flash_size: 16MB
+
 #  libraries:
 #    - Improv=https://github.com/FluxGarage/RoboEyes.git
 #    - adafruit/Adafruit SH110X
@@ -19,6 +23,8 @@ esp32:
 
   framework: 
     type: arduino 
+
+ 
 
 external_components:
   - source: 
@@ -243,7 +249,8 @@ switch:
 # Enable logging
 logger:
   level: DEBUG # you can set to INFO, WARN, ERROR if you prefer less output
-#  hardware_uart: USB_SERIAL_JTAG
+#  baud_rate: 0
+  hardware_uart: USB_SERIAL_JTAG
 #  baud_rate: 0  # Setting this to 0 for native USB is the 2026 standard
 
 # Enable Home Assistant API
