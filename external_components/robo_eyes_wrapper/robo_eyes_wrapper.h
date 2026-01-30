@@ -22,9 +22,10 @@ class RoboEyesComponent : public Component {
   RoboEyesComponent() : roboEyes(display) {}
 
   void setup() override {
+    delayMicroseconds(500);
     Wire.setPins(41, 42); 
     if(!display.begin(0x3C, false)) {
-        ESP_LOGE("robo_eyes", "Display init failed!");
+//        ESP_LOGE("robo_eyes", "Display init failed!");
     }
     roboEyes.begin(128, 64, 30);
     roboEyes.setAutoblinker(true);
@@ -32,7 +33,7 @@ class RoboEyesComponent : public Component {
     roboEyes.setMood(DEFAULT);
     
     this->ready_ = true; // Mark as ready for actions
-    ESP_LOGI("robo_eyes", "RoboEyes Initialization Complete");
+//    ESP_LOGI("robo_eyes", "RoboEyes Initialization Complete");
   }
 
   void loop() override {
